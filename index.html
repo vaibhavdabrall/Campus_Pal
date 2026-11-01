@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Campus Pal</title>
+<style>
+:root{--teal:#0e9aa7;--deep:#0b5c7a;--blue:#1d6fb8;--bg:#eef8fa;--ink:#12343b;--mut:#5b7d86;--line:#d3e7ec}
+*{box-sizing:border-box}body{margin:0;font-family:Georgia,"Segoe UI",system-ui,serif;background:var(--bg);color:var(--ink)}
+h1,h2,h3,button,input,select,textarea,nav,.sans{font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif}
+h2{margin:0 0 14px;font-size:24px}h3{margin:0 0 8px;font-size:16px}
+button{cursor:pointer;border:0;border-radius:10px;padding:9px 15px;background:var(--teal);color:#fff;font-weight:600;font-size:14px}
+button:hover{background:var(--deep)}button.ghost{background:#fff;color:var(--deep);border:1px solid var(--line)}button.ghost:hover{background:#e4f4f7}
+button.on{background:var(--deep);color:#fff}
+input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:#fff;color:var(--ink);margin-bottom:10px}
+:focus-visible{outline:3px solid #7cd3dc;outline-offset:1px}
+.auth{min-height:100vh;display:grid;grid-template-columns:1.1fr 1fr}
+.hero{background:linear-gradient(150deg,var(--deep),var(--teal));color:#fff;padding:56px;display:flex;flex-direction:column;justify-content:center}
+.hero h1{font-size:46px;line-height:1.1;margin:0 0 16px}.hero p{font-size:18px;max-width:430px;opacity:.92;line-height:1.5}
+.box{padding:48px;display:flex;flex-direction:column;justify-content:center;max-width:440px;width:100%;margin:auto}
+.tabs{display:flex;gap:8px;margin-bottom:16px}.tabs button{flex:1}
+.app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{background:#fff;border-right:1px solid var(--line);padding:18px 12px;position:sticky;top:0;height:100vh}
+.logo{font-size:22px;font-weight:800;color:var(--deep);padding:4px 10px 16px}.logo span{color:var(--teal)}
+nav button{display:block;width:100%;text-align:left;background:none;color:var(--ink);margin-bottom:3px;font-weight:500}
+nav button:hover,nav button.on{background:#dff2f5;color:var(--deep)}
+main{padding:28px;max-width:980px;width:100%}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}.grid .card{margin:0}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat{background:linear-gradient(140deg,var(--blue),var(--teal));color:#fff;border-radius:16px;padding:16px}.stat b{display:block;font-size:28px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.sp{justify-content:space-between}
+.chip{display:inline-block;background:#dff2f5;color:var(--deep);border-radius:20px;padding:3px 11px;font-size:12px;margin:2px 3px 2px 0;font-family:"Trebuchet MS",sans-serif}
+.mut{color:var(--mut);font-size:13px}.av{width:40px;height:40px;border-radius:50%;background:var(--teal);color:#fff;display:grid;place-items:center;font-weight:700;flex:none}
+.bar{height:8px;border-radius:8px;background:#dcecef;overflow:hidden}.bar i{display:block;height:100%;background:var(--teal)}
+.cm{background:var(--bg);border-radius:10px;padding:7px 10px;margin:5px 0;font-size:14px}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--deep);color:#fff;padding:11px 20px;border-radius:12px;opacity:0;transition:.25s;pointer-events:none;font-family:sans-serif;z-index:9}#toast.s{opacity:1}
+#modal{display:none;position:fixed;inset:0;background:#0b3a4880;place-items:center;z-index:5;padding:16px}#modal.s{display:grid}
+.mb{background:#fff;border-radius:18px;padding:20px;width:100%;max-width:460px}
+.chat{height:300px;overflow:auto;background:var(--bg);border-radius:12px;padding:10px;margin-bottom:10px}
+.m{max-width:80%;padding:8px 12px;border-radius:14px;margin:5px 0;font-size:14px;background:#fff}.m.me{background:var(--teal);color:#fff;margin-left:auto}
+.err{color:#b3261e;font-size:13px;min-height:18px;font-family:sans-serif}
+@media(max-width:800px){.auth{grid-template-columns:1fr}.hero{padding:32px}.hero h1{font-size:32px}.app{grid-template-columns:1fr}
+aside{position:static;height:auto;padding:8px}nav{display:flex;overflow-x:auto;gap:4px}nav button{white-space:nowrap;width:auto}.logo{padding:4px 8px}.stats{grid-template-columns:1fr 1fr}main{padding:16px}}
+</style></head><body>
+<div id="root"></div><div id="modal"><div class="mb" id="mb"></div></div><div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const tk=s=>(s||'').toLowerCase().split(/[^a-z0-9+#]+/).filter(Boolean);
+async function hash(p){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('cp::'+p));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){return btoa(p)}}
+let db={sess:null,users:[],posts:[],res:[],ev:[],sk:[],msgs:{}},tok=localStorage.getItem('cp_tok'),poll;
+async function api(p,m='GET',b){const r=await fetch(p,{method:m,headers:{'Content-Type':'application/json',...(tok?{Authorization:'Bearer '+tok}:{})},body:b?JSON.stringify(b):undefined});const j=await r.json().catch(()=>({}));
+if(r.status==401&&tok&&p!='/api/login'){tok=null;localStorage.removeItem('cp_tok');authView();throw 0}
+if(!r.ok){toast(j.error||'Something went wrong');const er=$('#er');if(er)er.textContent=j.error||'';throw 0}if(j.toast)toast(j.toast);return j}
+async function load(){const s=await api('/api/state');db.sess=s.me;['users','posts','res','ev','sk'].forEach(k=>db[k]=s[k]);db.msgs={};s.msgs.forEach(m=>{const k=[m.frm,m.too].sort().join('|');(db.msgs[k]=db.msgs[k]||[]).push({by:m.frm,t:m.t})})}
+async function act(p,m,b){try{await api(p,m,b);await load();draw()}catch(e){}}
+
+const me=()=>db.users.find(u=>u.id===db.sess),usr=id=>db.users.find(u=>u.id===id)||{name:'Student',id:''};
+const ini=n=>esc(n.split(' ').map(x=>x[0]).join('').slice(0,2).toUpperCase());
+let view='dash',filt='All',t0;
+function toast(m){const t=$('#toast');t.textContent=m;t.className='s';clearTimeout(t0);t0=setTimeout(()=>t.className='',2200)}
+const QUESTS=[['post','Share a post in the community',20],['res','Add a resource to the Study Hub',30],['conn','Connect with a peer',15],['event','Register for an event',15],['task','Complete a study task',25],['skill','Add a skill to exchange',15]];
+
+const lvl=u=>Math.floor(u.xp/100)+1;
+/* AUTH */
+function authView(mode='login'){$('#root').innerHTML=`<div class="auth"><div class="hero"><h1>Your campus, in one calm place.</h1><p>Find study material, meet students who share your interests, swap skills, join events and earn XP while you learn.</p></div>
+<div class="box"><div class="tabs"><button class="${mode=='login'?'on':'ghost'}" onclick="authView('login')">Log in</button><button class="${mode=='signup'?'on':'ghost'}" onclick="authView('signup')">Sign up</button></div>
+${mode=='signup'?'<input id="n" placeholder="Full name" autocomplete="name">':''}<input id="e" type="email" placeholder="Email (any email works)" autocomplete="email"><input id="p" type="password" placeholder="Password (min 6 characters)" autocomplete="${mode=='signup'?'new-password':'current-password'}">
+<div class="err" id="er"></div><button onclick="auth('${mode}')">${mode=='signup'?'Create my account':'Log in'}</button></div></div>`}
+async function auth(mode){const e=$('#e').value.trim().toLowerCase(),p=$('#p').value,n=mode=='signup'?$('#n').value.trim():'';
+if(!/^\S+@\S+\.\S+$/.test(e)||(mode=='signup'&&!n))return $('#er').textContent='Enter your name and a valid email.';
+if(p.length<6)return $('#er').textContent='Password needs at least 6 characters.';
+try{const r=await api('/api/'+mode,'POST',{name:n,email:e,password:p});tok=r.token;localStorage.setItem('cp_tok',tok);await load();view=mode=='signup'?'profile':'dash';app()}catch(x){}}
+function logout(){tok=null;localStorage.removeItem('cp_tok');db.sess=null;authView()}
+/* SHELL */
+const NAV=[['dash','Dashboard'],['feed','Community'],['hub','Study Hub'],['peers','Find Peers'],['skills','Skill Exchange'],['events','Events'],['quests','Quests & Ranks'],['ai','AI Study Buddy'],['profile','My Profile']];
+function app(){if(!me())return authView();$('#root').innerHTML=`<div class="app"><aside><div class="logo">Campus<span>Pal</span></div><nav>${NAV.map(n=>`<button class="${view==n[0]?'on':''}" onclick="go('${n[0]}')">${n[1]}</button>`).join('')}<button onclick="logout()">Log out</button></nav></aside><main id="main"></main></div>`;draw()}
+async function go(v){view=v;try{await load()}catch(e){return}app()}
+function draw(){$('#main').innerHTML=V[view]();if(view=='hub')hubList();if(view=='ai')aiInit()}
+/* MATCHING: TF-IDF + cosine */
+function matches(){const u=me(),docs=db.users.map(x=>tk(x.interests+' '+x.subjects)),N=docs.length,df={};docs.forEach(d=>new Set(d).forEach(t=>df[t]=(df[t]||0)+1));
+const vec=d=>{const v={};d.forEach(t=>v[t]=(v[t]||0)+1);for(const t in v)v[t]*=Math.log((N+1)/(df[t]+1))+1;return v},
+cos=(a,b)=>{let d=0,x=0,y=0;for(const t in a){x+=a[t]**2;if(b[t])d+=a[t]*b[t]}for(const t in b)y+=b[t]**2;return x&&y?d/Math.sqrt(x*y):0},
+vu=vec(tk(u.interests+' '+u.subjects));
+return db.users.filter(x=>x.id!==u.id).map(x=>({u:x,s:cos(vu,vec(tk(x.interests+' '+x.subjects))),sh:[...new Set(tk(x.interests+' '+x.subjects).filter(t=>tk(u.interests+' '+u.subjects).includes(t)))]})).sort((a,b)=>b.s-a.s)}
+const chips=s=>(s||'').split(',').filter(x=>x.trim()).map(x=>`<span class="chip">${esc(x.trim())}</span>`).join('');
+function peerCard(m){const u=m.u,c=me().conn.includes(u.id);return`<div class="card"><div class="row"><div class="av">${ini(u.name)}</div><div><h3 style="margin:0">${esc(u.name)}</h3><div class="mut">${esc(u.course||'Student')} ${u.sem?'· Sem '+esc(u.sem):''}</div></div></div>
+<p class="mut">${esc(u.bio||'')}</p>${chips(u.interests)}<div class="row sp" style="margin-top:10px"><span class="mut">${Math.round(m.s*100)}% interest match</span><span class="row"><button class="${c?'ghost':''}" onclick="connect('${u.id}')">${c?'Connected':'Connect'}</button><button class="ghost" onclick="chat('${u.id}')">Message</button></span></div></div>`}
+function connect(id){act('/api/connect/'+id,'POST')}
+/* VIEWS */
+const V={
+dash(){const u=me(),m=matches().slice(0,3),n=u.xp%100;return`<h2>Hi ${esc(u.name.split(' ')[0])}, welcome back</h2>
+<div class="stats"><div class="stat"><b>${u.xp}</b>XP earned</div><div class="stat"><b>${lvl(u)}</b>Level</div><div class="stat"><b>${u.conn.length}</b>Connections</div><div class="stat"><b>${u.tasks}</b>Tasks done</div></div>
+<div class="card"><div class="row sp"><b class="sans">Progress to level ${lvl(u)+1}</b><span class="mut">${n}/100 XP</span></div><div class="bar"><i style="width:${n}%"></i></div></div>
+<h3>Peers you may like</h3><div class="grid">${m.map(peerCard).join('')||'<div class="card mut">No other students yet. Invite your friends to sign up!</div>'}</div><h3 style="margin-top:18px">Upcoming events</h3><div class="grid">${db.ev.slice(0,2).map(evCard).join('')}</div>`},
+feed(){const cats=['All','Programming','Exams','Projects','Placements','General'],ps=db.posts.filter(p=>filt=='All'||p.cat==filt);return`<h2>Community</h2>
+<div class="card"><textarea id="pt" rows="3" placeholder="Ask a question or share something useful..."></textarea><div class="row"><select id="pc" style="width:auto;margin:0">${cats.slice(1).map(c=>`<option>${c}</option>`).join('')}</select><button onclick="post()">Post</button></div></div>
+<div class="row" style="margin-bottom:12px">${cats.map(c=>`<button class="${filt==c?'on':'ghost'}" onclick="filt='${c}';draw()">${c}</button>`).join('')}</div>
+${ps.length?ps.map(p=>`<div class="card"><div class="row"><div class="av">${ini(usr(p.by).name)}</div><div><b class="sans">${esc(usr(p.by).name)}</b> <span class="chip">${esc(p.cat)}</span></div></div><p>${esc(p.t)}</p>
+<button class="${p.likes.includes(db.sess)?'on':'ghost'}" onclick="like(${p.id})">♥ ${p.likes.length}</button>${p.cm.map(c=>`<div class="cm"><b class="sans">${esc(usr(c.by).name)}:</b> ${esc(c.t)}</div>`).join('')}
+<input style="margin:8px 0 0" placeholder="Write a comment and press Enter" onkeydown="if(event.key=='Enter')cmt(${p.id},this)"></div>`).join(''):'<div class="card mut">No posts in this category yet. Be the first to write one.</div>'}`},
+hub(){return`<h2>Study Hub</h2><div class="card"><div class="row"><input id="hs" placeholder="Search notes, PYQs, subjects..." oninput="hubList()" style="flex:1;margin:0"><select id="hc" onchange="hubList()" style="width:auto;margin:0"><option>All</option><option>Notes</option><option>PYQ</option><option>Assignments</option><option>Important Questions</option><option>Revision</option></select><button onclick="$('#rf').hidden=!$('#rf').hidden">+ Add resource</button></div>
+<div id="rf" hidden style="margin-top:12px"><input id="rt" placeholder="Title"><input id="rs" placeholder="Subject"><select id="rc"><option>Notes</option><option>PYQ</option><option>Assignments</option><option>Important Questions</option><option>Revision</option></select><textarea id="rd" rows="2" placeholder="Short description"></textarea><button onclick="addRes()">Share resource</button></div></div><div id="hl" class="grid"></div>`},
+peers(){return`<h2>Find peers</h2><p class="mut">Ranked with TF-IDF and cosine similarity on your interests and subjects. Update them in My Profile to improve matches.</p><div class="grid">${matches().map(peerCard).join('')||'<div class="card mut">No other students yet. Invite your friends to sign up!</div>'}</div>`},
+skills(){return`<h2>Skill Exchange</h2><div class="card"><div class="row"><select id="st" style="width:auto;margin:0"><option>Offer</option><option>Want</option></select><input id="sn" placeholder="e.g. Python basics" style="flex:1;margin:0"><button onclick="addSk()">Add</button></div></div>
+<div class="grid">${db.sk.map(s=>`<div class="card"><span class="chip">${s.type=='Offer'?'Can teach':'Wants to learn'}</span><h3>${esc(s.s)}</h3><div class="mut">${esc(usr(s.by).name)}</div>${s.by!=db.sess?`<button style="margin-top:10px" onclick="chat('${s.by}','Hi! Saw your skill post: ${esc(s.s).replace(/'/g,'')}. Want to swap?')">Message</button>`:''}</div>`).join('')}</div>`},
+events(){return`<h2>Campus Events</h2><div class="card"><div class="row"><input id="et" placeholder="Event title" style="flex:2;margin:0"><input id="ed" type="date" style="flex:1;margin:0"><input id="el" placeholder="Location" style="flex:1;margin:0"></div><textarea id="edd" rows="2" placeholder="Description" style="margin-top:10px"></textarea><button onclick="addEv()">Create event</button></div><div class="grid">${db.ev.map(evCard).join('')}</div>`},
+quests(){const u=me(),b=[...db.users].sort((a,b)=>b.xp-a.xp);return`<h2>Quests & Ranks</h2><div class="grid"><div class="card"><h3>Quests</h3>${QUESTS.map(q=>`<div class="row sp" style="padding:7px 0;border-bottom:1px solid var(--line)"><span>${u.done.includes(q[0])?'✓ ':''}${q[1]}</span><span class="chip">+${q[2]} XP</span></div>`).join('')}<p class="mut">Complete quests by using the app. Each quest pays once.</p></div>
+<div class="card"><h3>Leaderboard</h3>${b.map((x,i)=>`<div class="row sp" style="padding:7px 0"><span>${i+1}. ${esc(x.name)}${x.id==u.id?' (you)':''}</span><b class="sans">${x.xp} XP</b></div>`).join('')}</div></div>`},
+ai(){return`<h2>AI Study Buddy</h2><div class="card"><div class="chat" id="ac"></div><div class="row"><input id="ai" placeholder="Try: plan my DBMS revision" style="flex:1;margin:0" onkeydown="if(event.key=='Enter')aiSend()"><button onclick="aiSend()">Send</button></div></div><div class="card"><h3>Today's tasks</h3><div id="tl"></div></div>`},
+profile(){const u=me();return`<h2>My Profile</h2><div class="card"><label class="mut">Name</label><input id="pn" value="${esc(u.name)}"><label class="mut">Course</label><input id="pco" value="${esc(u.course)}" placeholder="e.g. BCA"><label class="mut">Semester</label><input id="ps" value="${esc(u.sem)}" placeholder="e.g. 4"><label class="mut">About you</label><textarea id="pb" rows="2">${esc(u.bio)}</textarea><label class="mut">Interests (comma separated)</label><input id="pi" value="${esc(u.interests)}" placeholder="python, web development, design"><label class="mut">Subjects you study</label><input id="pu" value="${esc(u.subjects)}" placeholder="DBMS, DSA"><button onclick="saveProf()">Save profile</button><p class="mut">Email: ${esc(u.email)}</p></div>`}};
+const evCard=e=>`<div class="card"><h3>${esc(e.title)}</h3><div class="mut">${esc(e.date||'')} · ${esc(e.loc||'')} · by ${esc(usr(e.by).name)}</div><p>${esc(e.d||'')}</p><div class="row sp"><span class="mut">${e.reg.length} registered</span><button class="${e.reg.includes(db.sess)?'ghost':''}" onclick="reg(${e.id})">${e.reg.includes(db.sess)?'Registered':'Register'}</button></div></div>`;
+/* ACTIONS */
+function post(){const t=$('#pt').value.trim();if(!t)return toast('Write something first.');act('/api/items/post','POST',{cat:$('#pc').value,t})}
+function like(id){act('/api/items/'+id+'/act','POST',{op:'like'})}
+function cmt(id,el){const t=el.value.trim();if(t)act('/api/items/'+id+'/act','POST',{op:'comment',t})}
+function hubList(){const q=($('#hs')||{}).value||'',c=($('#hc')||{}).value||'All',r=db.res.filter(x=>(c=='All'||x.cat==c||(c=='PYQ'&&x.cat=='PYQ'))&&(x.title+x.sub+x.d+x.cat).toLowerCase().includes(q.toLowerCase()));
+$('#hl').innerHTML=r.length?r.map(x=>`<div class="card"><span class="chip">${esc(x.cat)}</span><span class="chip">${esc(x.sub)}</span><h3 style="margin-top:6px">${esc(x.title)}</h3><p class="mut">${esc(x.d)}</p><div class="row sp"><span class="mut">by ${esc(usr(x.by).name)}</span>${x.by==db.sess?'<span class="mut">Yours</span>':`<button onclick="reqEx(${x.id})">Request exchange</button>`}</div></div>`).join(''):'<div class="card mut">Nothing matches. Try another keyword or add the first resource.</div>'}
+function addRes(){const t=$('#rt').value.trim();if(!t)return toast('Add a title.');act('/api/items/res','POST',{title:t,cat:$('#rc').value,sub:$('#rs').value.trim()||'General',d:$('#rd').value.trim()})}
+function reqEx(id){const r=db.res.find(x=>x.id==id);chat(r.by,'Hi! I would like to exchange for "'+r.title+'". What would you like in return?')}
+function addSk(){const s=$('#sn').value.trim();if(!s)return toast('Type a skill.');act('/api/items/sk','POST',{type:$('#st').value,s})}
+function addEv(){const t=$('#et').value.trim();if(!t)return toast('Add an event title.');act('/api/items/ev','POST',{title:t,date:$('#ed').value,loc:$('#el').value,d:$('#edd').value})}
+function reg(id){act('/api/items/'+id+'/act','POST',{op:'reg'})}
+function saveProf(){act('/api/profile','PUT',{name:$('#pn').value,course:$('#pco').value,sem:$('#ps').value,bio:$('#pb').value,interests:$('#pi').value,subjects:$('#pu').value})}
+/* CHAT with peers */
+const key=id=>[db.sess,id].sort().join('|');
+function chat(id,pre){const u=usr(id);$('#mb').innerHTML=`<div class="row sp"><h3>${esc(u.name)}</h3><button class="ghost" onclick="closeM()">Close</button></div><div class="chat" id="cc"></div><div class="row"><input id="ci" placeholder="Type a message" style="flex:1;margin:0" onkeydown="if(event.key=='Enter')send('${id}')"><button onclick="send('${id}')">Send</button></div>${u.seed?'<p class="mut">Demo student: replies are automatic.</p>':''}`;$('#modal').className='s';cdraw(id);clearInterval(poll);poll=setInterval(async()=>{try{await load();cdraw(id)}catch(e){}},4000);if(pre)$('#ci').value=pre}
+const closeM=()=>{$('#modal').className='';clearInterval(poll)};
+function cdraw(id){const c=$('#cc');if(!c)return;const m=db.msgs[key(id)]||[];c.innerHTML=m.length?m.map(x=>`<div class="m ${x.by==db.sess?'me':''}">${esc(x.t)}</div>`).join(''):'<div class="mut">Say hello to start the conversation.</div>';c.scrollTop=1e9}
+async function send(id){const i=$('#ci'),t=i.value.trim();if(!t)return;i.value='';try{await api('/api/msg','POST',{to:id,t});await load();cdraw(id)}catch(e){}}
+/* AI buddy (rule-based demo, no external API) */
+const TIPS={dbms:['Revise keys and normalization (1NF to BCNF)','Solve 5 SQL join questions','Draw an ER diagram for a library system'],python:['Write 3 small functions with tests','Revise lists, dicts and comprehensions','Solve 2 practice problems'],dsa:['Revise arrays and linked lists','Trace a binary search by hand','Solve 2 easy problems on stacks'],web:['Build a small responsive page','Revise flexbox and grid','Practice fetch and DOM events'],ml:['Revise train/test split and overfitting','Compute precision, recall and F1 by hand','Read about TF-IDF']};
+let tasks=[];
+function mkTasks(){const u=me(),s=tk(u.subjects+' '+u.interests);let k=s.find(t=>TIPS[t])||(s.includes('web')||s.includes('react')?'web':s.includes('machine')||s.includes('data')?'ml':'dbms');tasks=TIPS[k].map((t,i)=>({t,k,i}));tl()}
+function tl(){const e=$('#tl');if(e)e.innerHTML=tasks.map((t,i)=>`<div class="row sp" style="padding:6px 0"><span>${t.d?'✓ ':''}${esc(t.t)}</span>${t.d?'':`<button class="ghost" onclick="doneT(${i})">Done</button>`}</div>`).join('')||'<span class="mut">Ask for a plan to get tasks.</span>'}
+function doneT(i){tasks[i].d=1;tl();api('/api/task','POST').then(load).catch(()=>{})}
+function aiInit(){const c=$('#ac');c.innerHTML='<div class="m">Hi! Tell me a subject, like "plan my DBMS revision", and I will break it into small tasks.</div>';mkTasks()}
+function aiSend(){const i=$('#ai'),t=i.value.trim();if(!t)return;const c=$('#ac'),w=tk(t);c.innerHTML+=`<div class="m me">${esc(t)}</div>`;i.value='';
+const k=Object.keys(TIPS).find(x=>w.includes(x)||(x=='ml'&&(w.includes('machine')||w.includes('ai')))||(x=='web'&&w.includes('web')));
+let r;if(k){tasks=TIPS[k].map(t=>({t,k}));r='Here is a short plan for '+k.toUpperCase()+':<br>'+TIPS[k].map((x,j)=>(j+1)+'. '+x).join('<br>')+'<br>I added them to Today\'s tasks.';tl()}else r='I can plan revision for DBMS, Python, DSA, web or ML. Which one?';
+setTimeout(()=>{c.innerHTML+=`<div class="m">${r}</div>`;c.scrollTop=1e9},500)}
+$('#modal').addEventListener('click',e=>{if(e.target.id=='modal')closeM()});
+tok?load().then(app).catch(()=>authView()):authView();
+</script></body></html>
